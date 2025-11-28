@@ -1,0 +1,91 @@
+package rules
+
+import com.priya.otc.rules.model.PaymentOrderFact;
+import com.priya.otc.rules.model.CustomerFact;
+import com.priya.otc.rules.model.CustomerFinanceSummaryFact;
+import com.priya.otc.rules.model.ValidationResultFact;
+
+// R1 - Destination sanctioned -> REJECT
+rule "R1 - Destination country sanctioned"
+when
+    $p : PaymentOrderFact( destSanctioned == true )
+    $r : ValidationResultFact()
+then
+    $r.addRejectMessage("Destination country is under sanctions.");
+end
+
+// R2 - Origin high-risk + amount > 10000 -> REVIEW
+rule "R2 - High-risk origin with large amount"
+when
+    $p : PaymentOrderFact( originHighRisk == true, amount > 10000 )
+    $r : ValidationResultFact()
+then
+    $r.addReviewMessage("High-risk origin country with high amount. Manual review required.");
+end
+
+// R3 - Blocked customer -> REJECT
+rule "R3 - Blocked customer"
+when
+    $c : CustomerFact( blocked == true )
+    $r : ValidationResultFact()
+then
+    $r.addRejectMessage("Customer is blocked for financial reasons.");
+end
+
+// R4 - High-risk customer + amount > 5000 -> REVIEW
+rule "R4 - High-risk customer high amount"
+when
+    $c : CustomerFact( riskCategory == "HIGH" )
+    $p : PaymentOrderFact( amount > 5000 )
+    $r : ValidationResultFact()
+then
+    $r.addReviewMessage("High-risk customer with large transaction.");
+end
+
+// R5 - Credit limit exceeded -> REJECT
+rule "R5 - Credit limit exceeded"
+when
+    $p : PaymentOrderFact( $amt : amount )
+    $cfs : CustomerFinanceSummaryFact( (totalOutstanding + $amt) > creditLimit )
+    $r : ValidationResultFact()
+then
+    $r.addRejectMessage("Credit limit exceeded for this customer.");
+end
+
+// R6 - Overdue invoices -> REVIEW
+rule "R6 - Overdue invoices present"
+when
+    $cfs : CustomerFinanceSummaryFact( overdueInvoicesCount > 0, oldestInvoiceAgeDays > 30 )
+    $r : ValidationResultFact()
+then
+    $r.addReviewMessage("Customer has overdue invoices older than 30 days.");
+end
+
+// R7 - High-risk customer must be PREPAID (no INVOICE)
+rule "R7 - High-risk must be prepaid"
+when
+    $c : CustomerFact( riskCategory == "HIGH" )
+    $p : PaymentOrderFact( paymentMethod == "INVOICE" )
+    $r : ValidationResultFact()
+then
+    $r.addRejectMessage("High-risk customer cannot use INVOICE payment method. Prepaid required.");
+end
+
+// R8 - Very large amount -> REVIEW
+rule "R8 - Very high amount manual review"
+when
+    $p : PaymentOrderFact( amount > 20000 )
+    $r : ValidationResultFact()
+then
+    $r.addReviewMessage("Very high payment amount. Manual review required.");
+end
+
+// R9 - Final status aggregation
+rule "R9 - Finalize status"
+salience -10
+when
+    $r : ValidationResultFact()
+then
+    $r.finalizeStatus();
+end
+
