@@ -1,5 +1,6 @@
 package com.priya.otc.orchestrator.controller;
 
+import com.priya.otc.orchestrator.dto.OtcValidationRequestDto;
 import com.priya.otc.orchestrator.dto.OtcValidationResponseDto;
 import com.priya.otc.orchestrator.service.OtcValidationService;
 import org.springframework.web.bind.annotation.*;
@@ -14,8 +15,8 @@ public class OtcValidationController {
         this.service = service;
     }
 
-    @GetMapping("/validate/{paymentId}")
-    public OtcValidationResponseDto validate(@PathVariable String paymentId) {
-        return service.validatePayment(paymentId);
+    @PostMapping("/validate")
+    public OtcValidationResponseDto validate(@RequestBody OtcValidationRequestDto request) {
+        return service.validatePayment(request.getPaymentId());
     }
 }
